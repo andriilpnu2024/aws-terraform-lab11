@@ -169,9 +169,7 @@ resource "aws_lambda_function" "this" {
   timeout          = 10
 
   environment {
-    variables = merge(each.value.env, {
-      AWS_REGION = var.aws_region
-    })
+    variables = each.value.env
   }
 
   tags = local.common_tags
@@ -204,6 +202,7 @@ resource "aws_api_gateway_resource" "course_id" {
   parent_id   = aws_api_gateway_resource.courses.id
   path_part   = "{id}"
 }
+
 
 resource "aws_api_gateway_method" "authors_get" {
   rest_api_id   = aws_api_gateway_rest_api.this.id
@@ -583,4 +582,8 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   tags = local.common_tags
+}
+
+output "api_invoke_url" {
+  value = "https://${aws_api_gateway_rest_api.this.id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.dev.stage_name}"
 }

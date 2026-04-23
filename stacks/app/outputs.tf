@@ -3,7 +3,7 @@ output "lambda_function_names" {
 }
 
 output "api_base_url" {
-  value = "${aws_api_gateway_stage.dev.invoke_url}"
+  value = aws_api_gateway_stage.dev.invoke_url
 }
 
 output "frontend_bucket_name" {

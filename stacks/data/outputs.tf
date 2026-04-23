@@ -1,3 +1,9 @@
+<<<<<<< Updated upstream
+=======
+output "aws_region" {
+  value = var.aws_region
+}
+>>>>>>> Stashed changes
 output "authors_table_name" {
   value = module.authors_table.name
 }
@@ -13,7 +19,10 @@ output "courses_table_name" {
 output "courses_table_arn" {
   value = module.courses_table.arn
 }
+<<<<<<< Updated upstream
 
 output "aws_region" {
   value = var.aws_region
 }
+=======
+>>>>>>> Stashed changes

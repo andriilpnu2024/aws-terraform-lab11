@@ -1,0 +1,1 @@
+export default "https://l3e14wykif.execute-api.eu-central-1.amazonaws.com/dev";

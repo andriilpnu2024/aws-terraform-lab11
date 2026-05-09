@@ -1,55 +1,79 @@
-const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
-const { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
+const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 
-const client = new DynamoDBClient({ region: process.env.AWS_REGION });
-const cloudwatch = new CloudWatchClient({});
-const cloudwatch = new AWS.Cloudwatch();
+const client = new DynamoDBClient({});
 
 const isApiGateway = (event) => !!event?.requestContext;
-const response = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(body) });
-const slugify = (value) => value.toLowerCase().trim().replace(/\s+/g, '-');
+
+const response = (statusCode, body) => ({
+  statusCode,
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+  },
+  body: JSON.stringify(body)
+});
+
+const replaceAll = (str, find, replace) => {
+  return str.replace(new RegExp(find, "g"), replace);
+};
 
 exports.handler = async (event = {}) => {
   try {
-    const payload = event?.body ? JSON.parse(event.body) : event;
-    const id = slugify(payload.title || '');
+    console.log("EVENT:", JSON.stringify(event, null, 2));
 
-    if (!payload.title || !payload.authorId || !payload.length || !payload.category) {
-      return isApiGateway(event) ? response(400, { message: 'title, authorId, length, category are required' }) : { message: 'title, authorId, length, category are required' };
+    const body = event?.body ? JSON.parse(event.body) : event;
+
+    if (!body.title || !body.authorId || !body.length || !body.category) {
+      const result = {
+        message: "title, authorId, length and category are required"
+      };
+
+      return isApiGateway(event) ? response(400, result) : result;
     }
 
-    const item = {
-      id: { S: id },
-      title: { S: payload.title },
-      watchHref: { S: `http://www.pluralsight.com/courses/${id}` },
-      authorId: { S: payload.authorId },
-      length: { S: payload.length },
-      category: { S: payload.category },
-    };
+    const id = body.id || replaceAll(body.title, " ", "-").toLowerCase();
 
-    await client.send(new PutItemCommand({ TableName: process.env.COURSES_TABLE_NAME, Item: item }));
-    await cloudwatch.send(new PutMetricDataCommand({
-      Namespace: "ServerlessApp",
-      MetricData: [
-        {
-          MetricName: "CourseCreated",
-          Value: 1,
-          Unit: "Count"
-        }
-      ]
-    }));
-    const result = {
+    const course = {
       id,
-      title: payload.title,
-      watchHref: `http://www.pluralsight.com/courses/${id}`,
-      authorId: payload.authorId,
-      length: payload.length,
-      category: payload.category,
+      title: body.title,
+      watchHref: body.watchHref || `http://www.pluralsight.com/courses/${id}`,
+      authorId: body.authorId,
+      length: body.length,
+      category: body.category
     };
 
-    return isApiGateway(event) ? response(200, result) : result;
+    const tableName = process.env.COURSES_TABLE_NAME;
+
+    if (!tableName) {
+      const result = {
+        message: "COURSES_TABLE_NAME environment variable is not set"
+      };
+
+      return isApiGateway(event) ? response(500, result) : result;
+    }
+
+    await client.send(new PutItemCommand({
+      TableName: tableName,
+      Item: {
+        id: { S: course.id },
+        title: { S: course.title },
+        watchHref: { S: course.watchHref },
+        authorId: { S: course.authorId },
+        length: { S: course.length },
+        category: { S: course.category }
+      }
+    }));
+
+    return isApiGateway(event) ? response(200, course) : course;
   } catch (error) {
-    console.error(error);
-    return isApiGateway(event) ? response(500, { message: error.message }) : { message: error.message };
+    console.error("SAVE COURSE ERROR:", error);
+
+    const result = {
+      message: error.message
+    };
+
+    return isApiGateway(event) ? response(500, result) : result;
   }
 };

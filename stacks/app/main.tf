@@ -460,7 +460,6 @@ resource "aws_api_gateway_deployment" "this" {
 
   triggers = {
     redeployment = sha1(jsonencode([
-      timestamp(),
       aws_api_gateway_resource.authors.id,
       aws_api_gateway_resource.courses.id,
       aws_api_gateway_resource.course_id.id,
@@ -528,14 +527,18 @@ resource "aws_s3_bucket_policy" "frontend_public_read" {
   })
 }
 
-resource "aws_s3_object" "frontend_files" {
-  for_each = fileset("../../frontend", "**")
+locals {
+  frontend_build_dir = "${path.module}/../../frontend/build"
+  frontend_files     = fileset(local.frontend_build_dir, "**/*")
+}
 
-  bucket       = aws_s3_bucket.frontend.id
-  key          = each.value
-  source       = "../../frontend/${each.value}"
-  etag         = filemd5("../../frontend/${each.value}")
-  content_type = each.value == "index.html" ? "text/html" : null
+resource "aws_s3_object" "frontend_files" {
+  for_each = local.frontend_files
+
+  bucket = aws_s3_bucket.frontend.id
+  key    = each.value
+  source = "${local.frontend_build_dir}/${each.value}"
+  etag   = filemd5("${local.frontend_build_dir}/${each.value}")
 }
 
 resource "aws_cloudfront_distribution" "frontend" {
